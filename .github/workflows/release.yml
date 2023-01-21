@@ -1,0 +1,24 @@
+name: release
+run-name: Releasing ${{ github.repository }} - ${{ github.ref_name }}
+on:
+  push:
+    branches:
+      - "main"
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@v3
+        with:
+          ref: "main"
+          fetch-depth: "0"
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.TARGET_REPO_SSH_PRIVATE_KEY }}
+      - name: Push Code
+        run: |
+          git remote add release "${{ env.TARGET_REPO_SSH }}"
+          git push release main
+

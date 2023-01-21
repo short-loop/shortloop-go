@@ -19,6 +19,6 @@ jobs:
           ssh-private-key: ${{ secrets.TARGET_REPO_SSH_PRIVATE_KEY }}
       - name: Push Code
         run: |
-          git remote add release "${{ env.TARGET_REPO_SSH }}"
+          git remote add release "${{ vars.TARGET_REPO_SSH }}"
           git push release main
 

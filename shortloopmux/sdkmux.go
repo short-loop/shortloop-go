@@ -9,6 +9,7 @@ import (
 	"github.com/short-loop/shortloop-go/sdkversion"
 	"github.com/short-loop/shortloop-go/shortloopfilter"
 	"net/http"
+	"strings"
 )
 
 type Options struct {
@@ -94,6 +95,9 @@ func (shortloopMux *ShortloopMux) Filter(h http.Handler) http.Handler {
 
 func Init(options Options) (*ShortloopMux, error) {
 	shortloopMux := &ShortloopMux{shortloopfilter.CurrentShortloopFilter()}
+
+	options.ShortloopEndpoint = strings.TrimSpace(options.ShortloopEndpoint)
+	options.ApplicationName = strings.TrimSpace(options.ApplicationName)
 
 	if options.ShortloopEndpoint == "" {
 		return nil, fmt.Errorf("ShortloopEndpoint is required")

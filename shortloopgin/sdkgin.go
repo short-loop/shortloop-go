@@ -2,6 +2,7 @@ package shortloopgin
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/short-loop/shortloop-go/buffer"
@@ -101,6 +102,10 @@ func Init(options Options) (*ShortloopGin, error) {
 	}
 
 	shortloopGin := &ShortloopGin{shortloopfilter.CurrentShortloopFilter()}
+
+	options.ShortloopEndpoint = strings.TrimSpace(options.ShortloopEndpoint)
+	options.ApplicationName = strings.TrimSpace(options.ApplicationName)
+
 	if options.ShortloopEndpoint == "" {
 		return nil, fmt.Errorf("ShortloopEndpoint is required")
 	}

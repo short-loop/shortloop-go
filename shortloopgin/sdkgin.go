@@ -27,7 +27,18 @@ type ShortloopGin struct {
 
 func (shortloopGin *ShortloopGin) Filter() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		if nil == shortloopGin {
+			c.Next()
+			return
+		}
+
 		sf := shortloopGin.shortloopFilter
+
+		if nil == sf {
+			c.Next()
+			return
+		}
 
 		var agentConfigLocal *AgentConfig = sf.AgentConfig
 

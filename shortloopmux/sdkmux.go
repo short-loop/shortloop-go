@@ -24,7 +24,18 @@ type ShortloopMux struct {
 
 func (shortloopMux *ShortloopMux) Filter(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if nil == shortloopMux {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		sf := shortloopMux.shortloopFilter
+
+		if nil == sf {
+			h.ServeHTTP(w, r)
+			return
+		}
 
 		var agentConfigLocal *AgentConfig = sf.AgentConfig
 

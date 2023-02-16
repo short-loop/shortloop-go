@@ -129,12 +129,14 @@ func (damw *DiscoveredApiManagerWorker) syncForKey(apiBufferKey ApiBufferKey) {
 		return
 	}
 
-	//_, err = damw.httpClient.Do(req)
-	//fmt.Println("fetched config: ", response, err)
-	httpconnection.SendRequest(&damw.httpClient, req)
-	//if err != nil {
-	//	sdklogger.Logger.ErrorF("Error sending request: %s\n", err.Error())
-	//	return
-	//}
+	response, err := httpconnection.SendRequest(&damw.httpClient, req)
+	if err != nil {
+		sdklogger.Logger.ErrorF("Error sending discovered api samples: %s\n", err.Error())
+		return
+	}
+	err = response.Body.Close()
+	if err != nil {
+		sdklogger.Logger.ErrorF("Error closing connection: %s\n", err.Error())
+	}
 	sdklogger.Logger.InfoF("Synced %d samples for discovered api %+v\n", iterations, apiBufferKey.GetUri())
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/short-loop/shortloop-go/buffer"
 	. "github.com/short-loop/shortloop-go/common/models/data"
 	"github.com/short-loop/shortloop-go/config"
+	"github.com/short-loop/shortloop-go/httpconnection"
 	"github.com/short-loop/shortloop-go/sdklogger"
 	"github.com/short-loop/shortloop-go/sdkversion"
 	"github.com/short-loop/shortloop-go/shortloopfilter"
@@ -17,6 +18,8 @@ type Options struct {
 	ApplicationName   string
 	LoggingEnabled    bool
 	LogLevel          string
+	AuthKey           string
+	Environment       string
 }
 
 type ShortloopMux struct {
@@ -98,13 +101,23 @@ func Init(options Options) (*ShortloopMux, error) {
 
 	options.ShortloopEndpoint = strings.TrimSpace(options.ShortloopEndpoint)
 	options.ApplicationName = strings.TrimSpace(options.ApplicationName)
+	options.AuthKey = strings.TrimSpace(options.AuthKey)
+	options.Environment = strings.TrimSpace(options.Environment)
 
+	if options.AuthKey == "" {
+		return nil, fmt.Errorf("AuthKey is required")
+	}
+	if options.Environment == "" {
+		return nil, fmt.Errorf("Environment is required")
+	}
 	if options.ShortloopEndpoint == "" {
 		return nil, fmt.Errorf("ShortloopEndpoint is required")
 	}
 	if options.ApplicationName == "" {
 		return nil, fmt.Errorf("ApplicationName is required")
 	}
+	httpconnection.AuthKey = options.AuthKey
+	httpconnection.Environment = options.Environment
 
 	loggingEnabled := options.LoggingEnabled
 	logLevel := "ERROR"

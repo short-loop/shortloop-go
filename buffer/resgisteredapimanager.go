@@ -148,13 +148,16 @@ func (ramw *RegisteredApiManagerWorker) syncForKey(apiBufferKey ApiBufferKey) {
 			sdklogger.Logger.ErrorF("Error creating request: %s\n", err.Error())
 			return
 		}
-		//_, err = ramw.httpClient.Do(req)
-		httpconnection.SendRequest(&ramw.httpClient, req)
 
-		//if err != nil {
-		//	sdklogger.Logger.ErrorF("Error sending request: %s\n", err.Error())
-		//	return
-		//}
+		response, err := httpconnection.SendRequest(&ramw.httpClient, req)
+		if err != nil {
+			sdklogger.Logger.ErrorF("Error sending registered api samples: %s\n", err.Error())
+			return
+		}
+		err = response.Body.Close()
+		if err != nil {
+			sdklogger.Logger.ErrorF("Error closing connection: %s\n", err.Error())
+		}
 	}
 	sdklogger.Logger.InfoF("Synced %d samples for registered api %+v\n", iterations, apiBufferKey.GetUri())
 }

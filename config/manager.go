@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"github.com/short-loop/shortloop-go/common/models/data"
 	"github.com/short-loop/shortloop-go/executor"
+	"github.com/short-loop/shortloop-go/httpconnection"
 	"github.com/short-loop/shortloop-go/sdklogger"
-	"github.com/short-loop/shortloop-go/sdkversion"
 	"io"
 	"math/rand"
 	"net/http"
@@ -66,16 +66,11 @@ func (m *Manager) fetchConfig() (*data.AgentConfig, ErrorCode) {
 	defer m.Unlock()
 
 	req, err := http.NewRequest("GET", m.ctUrl+m.getUri(), nil)
-	req.Header.Set(sdkversion.MAJOR_VERSION_KEY, sdkversion.MAJOR_VERSION)
-	req.Header.Set(sdkversion.MINOR_VERSION_KEY, sdkversion.MINOR_VERSION)
-	req.Header.Set("sdkType", sdkversion.SdkType)
 	q := req.URL.Query()
 	q.Add("appName", m.userApplicationName)
 	q.Add("agentId", m.agentId)
 	req.URL.RawQuery = q.Encode()
-
-	response, err := m.httpClient.Do(req)
-	// fmt.Println("fetched config: ", response, err)
+	response, err := httpconnection.SendRequest(&m.httpClient, req)
 	if err != nil {
 		sdklogger.Logger.ErrorF("Error while fetching config from CT: %+v\n", err)
 		return nil, TIMEOUT

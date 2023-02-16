@@ -6,23 +6,24 @@ import (
 	"net/http"
 )
 
-func SendRequest(httpClient *http.Client, httpRequest *http.Request) {
+var AuthKey = ""
+var Environment = ""
+
+func SendRequest(httpClient *http.Client, httpRequest *http.Request) (*http.Response, error) {
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.Header.Set(sdkversion.MAJOR_VERSION_KEY, sdkversion.MAJOR_VERSION)
 	httpRequest.Header.Set(sdkversion.MINOR_VERSION_KEY, sdkversion.MINOR_VERSION)
 	httpRequest.Header.Set("sdkType", sdkversion.SdkType)
-
+	if AuthKey != "" {
+		httpRequest.Header.Set("authKey", AuthKey)
+	}
+	if Environment != "" {
+		httpRequest.Header.Set("environment", Environment)
+	}
 	response, err := httpClient.Do(httpRequest)
 	if err != nil {
 		sdklogger.Logger.ErrorF("Error sending request: %s\n", err.Error())
-		return
+		return nil, err
 	}
-	defer func() {
-		err = response.Body.Close()
-		if err != nil {
-			sdklogger.Logger.ErrorF("Error closing connection: %s\n", err.Error())
-			return
-		}
-	}()
-	return
+	return response, nil
 }

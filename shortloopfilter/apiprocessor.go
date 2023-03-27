@@ -114,11 +114,11 @@ func (ap *ApiProcessor) getBufferEntryForApiSample(context RequestResponseContex
 	apiSample.SetRequestHeaders(ap.getRequestHeaders(context.GetHttpRequest()))
 	apiSample.SetResponseHeaders(ap.getResponseHeaders(context.GetResponseWriterWrapper()))
 	apiSample.SetLatency(context.GetLatency())
-
-	hostname, port := ap.getHostAndPort(context.GetHttpRequest())
+	var scheme string = ap.getScheme(context.GetHttpRequest())
+	apiSample.SetScheme(scheme)
+	hostname, port := ap.getHostAndPort(context.GetHttpRequest(), scheme)
 	apiSample.SetHostName(hostname)
 	apiSample.SetPort(port)
-	apiSample.SetScheme(context.GetHttpRequest().URL.Scheme)
 
 	if context.GetRequestPayloadCaptureAttempted() {
 		apiSample.SetRequestPayload(string(context.GetRequestPayload()))
@@ -136,10 +136,31 @@ func (ap *ApiProcessor) getBufferEntryForApiSample(context RequestResponseContex
 	return &apiSample
 }
 
-func (ap *ApiProcessor) getHostAndPort(request *http.Request) (hostname string, port int) {
+func (ap *ApiProcessor) getScheme(request *http.Request) string {
+	if request.URL.Scheme == "" {
+		if request.TLS == nil {
+			return "http"
+		} else {
+			return "https"
+		}
+	}
+	return request.URL.Scheme
+}
+
+func (ap *ApiProcessor) getHostAndPort(request *http.Request, scheme string) (hostname string, port int) {
 	parts := strings.Split(request.Host, ":")
-	hostname = parts[0]
-	port, _ = strconv.Atoi(parts[1])
+	if len(parts) > 0 {
+		hostname = parts[0]
+	}
+	if len(parts) > 1 {
+		port, _ = strconv.Atoi(parts[1])
+	} else {
+		if scheme == "http" {
+			port = 80
+		} else if scheme == "https" {
+			port = 443
+		}
+	}
 	return
 }
 

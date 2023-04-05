@@ -10,6 +10,7 @@ import (
 	"github.com/short-loop/shortloop-go/sdklogger"
 	"github.com/short-loop/shortloop-go/sdkversion"
 	"github.com/short-loop/shortloop-go/shortloopfilter"
+	"github.com/short-loop/shortloop-go/shortloopfiltertestmode"
 	"net/http"
 	"os"
 	"strings"
@@ -22,13 +23,22 @@ type Options struct {
 	LogLevel          string
 	AuthKey           string
 	Environment       string
+	Capture           string
 }
 
-type ShortloopGin struct {
+type ShortloopGin interface {
+	Filter() gin.HandlerFunc
+}
+
+type ShortloopGinNormalMode struct {
 	shortloopFilter *shortloopfilter.ShortloopFilter
 }
 
-func (shortloopGin *ShortloopGin) Filter() gin.HandlerFunc {
+type ShortloopGinTestMode struct {
+	shortloopFilter *shortloopfiltertestmode.ShortloopFilterTestMode
+}
+
+func (shortloopGin *ShortloopGinNormalMode) Filter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		if nil == shortloopGin {
@@ -92,18 +102,47 @@ func (shortloopGin *ShortloopGin) Filter() gin.HandlerFunc {
 				return
 			})
 		}
-
-		// h.ServeHTTP(nrw, r)
 	}
 }
 
-func Init(options Options) (*ShortloopGin, error) {
+func (shortloopGin *ShortloopGinTestMode) Filter() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if nil == shortloopGin {
+			c.Next()
+			return
+		}
+
+		sf := shortloopGin.shortloopFilter
+
+		if nil == sf {
+			c.Next()
+			return
+		}
+
+		var observedApi ObservedApi = sf.GetObservedApiFromRequest(c.Request)
+
+		nrw := NewResponseWriterWrapper(c.Writer)
+		context := shortloopfilter.NewRequestResponseContext(nrw, c.Request, sf.UserApplicationName)
+		context.SetObservedApi(observedApi)
+		sdklogger.Logger.InfoF("Processing Api: %+v\n", observedApi.GetUri())
+		sf.ApiProcessor.ProcessApi(context, func(canOffer bool, responsePayloadCaptureAttempted bool) {
+			if canOffer {
+				nrw.SetShouldCaptureBody(responsePayloadCaptureAttempted)
+				c.Writer = nrw
+			}
+			c.Next()
+			return
+		})
+	}
+}
+
+func Init(options Options) (ShortloopGin, error) {
 
 	if os.Getenv("GOARCH") == "386" {
 		return nil, fmt.Errorf("32 bit Arch not supported by shortloop sdk")
 	}
 
-	shortloopGin := &ShortloopGin{shortloopfilter.CurrentShortloopFilter()}
+	shortloopGin := &ShortloopGinNormalMode{shortloopfilter.CurrentShortloopFilter()}
 
 	options.ShortloopEndpoint = strings.TrimSpace(options.ShortloopEndpoint)
 	options.ApplicationName = strings.TrimSpace(options.ApplicationName)
@@ -135,6 +174,20 @@ func Init(options Options) (*ShortloopGin, error) {
 	sdklogger.Logger.SetLogLevel(sdklogger.GetLogLevel(logLevel))
 
 	sdklogger.Logger.Info("Initializing Shortloop SDK")
+
+	if strings.EqualFold(options.Capture, "always") {
+		sdklogger.Logger.Info("Shortloop SDK is running in test mode to sample 100% requests")
+		shortloopGin := &ShortloopGinTestMode{shortloopfiltertestmode.CurrentShortloopFilterTestMode()}
+
+		bufferManager := shortloopfiltertestmode.NewBufferManager(options.ShortloopEndpoint, http.Client{})
+		apiProcessor := shortloopfiltertestmode.NewApiProcessor(&bufferManager)
+
+		shortloopFilter := shortloopfiltertestmode.CurrentShortloopFilterTestMode()
+		shortloopFilter.SetUserApplicationName(options.ApplicationName)
+		shortloopFilter.SetApiProcessor(apiProcessor)
+		shortloopFilter.Init()
+		return shortloopGin, nil
+	}
 
 	configManager := config.CurrentConfigManager()
 	configManager.SetCtUrl(options.ShortloopEndpoint)

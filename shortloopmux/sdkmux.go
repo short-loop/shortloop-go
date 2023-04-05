@@ -9,6 +9,7 @@ import (
 	"github.com/short-loop/shortloop-go/sdklogger"
 	"github.com/short-loop/shortloop-go/sdkversion"
 	"github.com/short-loop/shortloop-go/shortloopfilter"
+	"github.com/short-loop/shortloop-go/shortloopfiltertestmode"
 	"net/http"
 	"strings"
 )
@@ -20,13 +21,22 @@ type Options struct {
 	LogLevel          string
 	AuthKey           string
 	Environment       string
+	Capture           string
 }
 
-type ShortloopMux struct {
+type ShortloopMux interface {
+	Filter(h http.Handler) http.Handler
+}
+
+type ShortloopMuxNormalMode struct {
 	shortloopFilter *shortloopfilter.ShortloopFilter
 }
 
-func (shortloopMux *ShortloopMux) Filter(h http.Handler) http.Handler {
+type ShortloopMuxTestMode struct {
+	shortloopFilter *shortloopfiltertestmode.ShortloopFilterTestMode
+}
+
+func (shortloopMux *ShortloopMuxNormalMode) Filter(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		if nil == shortloopMux {
@@ -96,13 +106,45 @@ func (shortloopMux *ShortloopMux) Filter(h http.Handler) http.Handler {
 	})
 }
 
-func Init(options Options) (*ShortloopMux, error) {
-	shortloopMux := &ShortloopMux{shortloopfilter.CurrentShortloopFilter()}
+func (shortloopMux *ShortloopMuxTestMode) Filter(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		if nil == shortloopMux {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		sf := shortloopMux.shortloopFilter
+
+		if nil == sf {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		var observedApi ObservedApi = sf.GetObservedApiFromRequest(r)
+
+		nrw := NewResponseWriterWrapper(w)
+		context := shortloopfilter.NewRequestResponseContext(nrw, r, sf.UserApplicationName)
+		context.SetObservedApi(observedApi)
+		sdklogger.Logger.InfoF("Processing Api: %+v\n", observedApi.GetUri())
+		sf.ApiProcessor.ProcessApi(context, func(canOffer bool, responsePayloadCaptureAttempted bool) {
+			if canOffer {
+				nrw.SetShouldCaptureBody(responsePayloadCaptureAttempted)
+				h.ServeHTTP(nrw, context.GetHttpRequest())
+			} else {
+				h.ServeHTTP(w, context.GetHttpRequest())
+			}
+			return
+		})
+	})
+}
+
+func Init(options Options) (ShortloopMux, error) {
 	options.ShortloopEndpoint = strings.TrimSpace(options.ShortloopEndpoint)
 	options.ApplicationName = strings.TrimSpace(options.ApplicationName)
 	options.AuthKey = strings.TrimSpace(options.AuthKey)
 	options.Environment = strings.TrimSpace(options.Environment)
+	options.Capture = strings.TrimSpace(options.Capture)
 
 	if options.AuthKey == "" {
 		return nil, fmt.Errorf("AuthKey is required")
@@ -129,7 +171,20 @@ func Init(options Options) (*ShortloopMux, error) {
 	sdklogger.Logger.SetLogLevel(sdklogger.GetLogLevel(logLevel))
 
 	sdklogger.Logger.Info("Initializing Shortloop SDK")
+	if strings.EqualFold(options.Capture, "always") {
+		sdklogger.Logger.Info("Shortloop SDK is running in test mode to sample 100% requests")
+		shortloopMux := &ShortloopMuxTestMode{shortloopfiltertestmode.CurrentShortloopFilterTestMode()}
 
+		bufferManager := shortloopfiltertestmode.NewBufferManager(options.ShortloopEndpoint, http.Client{})
+		apiProcessor := shortloopfiltertestmode.NewApiProcessor(&bufferManager)
+
+		shortloopFilter := shortloopfiltertestmode.CurrentShortloopFilterTestMode()
+		shortloopFilter.SetUserApplicationName(options.ApplicationName)
+		shortloopFilter.SetApiProcessor(apiProcessor)
+		shortloopFilter.Init()
+		return shortloopMux, nil
+	}
+	shortloopMux := &ShortloopMuxNormalMode{shortloopfilter.CurrentShortloopFilter()}
 	configManager := config.CurrentConfigManager()
 	configManager.SetCtUrl(options.ShortloopEndpoint)
 	configManager.SetUserApplicationName(options.ApplicationName)

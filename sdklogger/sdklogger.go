@@ -62,6 +62,14 @@ func (logger *SDKLogger) SetLogLevel(logLevel LogLevel) {
 	logger.logLevel = logLevel
 }
 
+func (logger *SDKLogger) GetLoggingEnabled() bool {
+	return logger.loggingEnabled
+}
+
+func (logger *SDKLogger) GetLogLevel() LogLevel {
+	return logger.logLevel
+}
+
 var Logger *SDKLogger
 
 func init() {

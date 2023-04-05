@@ -61,59 +61,6 @@ func (sf *ShortloopFilter) Init() bool {
 	return true
 }
 
-// func Filter(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-// 		nrw := NewResponseWriter(w)
-
-// 		h.ServeHTTP(nrw, r)
-
-// 		func() {
-// 			if len(contextArray) < 20 {
-// 				contextArray = append(contextArray, NewContext(nrw, r))
-// 			}
-// 		}()
-// 	})
-// }
-
-// func (sf *ShortloopFilter) Filter(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-// 		var agentConfigLocal AgentConfig = sf.agentConfig
-
-// 		if reflect.DeepEqual(agentConfigLocal, AgentConfig{}) {
-// 			h.ServeHTTP(w, r)
-// 			return
-// 		}
-
-// 		if !agentConfigLocal.GetCaptureApiSample() {
-// 			h.ServeHTTP(w, r)
-// 			return
-// 		}
-
-// 		var observedApi ObservedApi = sf.getObservedApiFromRequest(r)
-// 		nrw := NewResponseWriterWrapper(w)
-// 		context := NewRequestResponseContext(nrw, r, sf.userApplicationName)
-// 		context.SetObservedApi(observedApi)
-// 		context.SetAgentConfig(agentConfigLocal)
-// 		fmt.Println("context: ", context)
-
-// 		var apiConfig ApiConfig = sf.getApiConfig(observedApi, agentConfigLocal)
-// 		fmt.Println("apiConfig before registered api: ", apiConfig)
-
-//if !reflect.DeepEqual(apiConfig, ApiConfig{}) {
-//	context.SetApiConfig(apiConfig)
-//	context.SetApiBufferKey(buffer.GetApiBufferKeyFromApiConfig(context.GetApiConfig()))
-//	sf.apiProcessor.ProcessRegisteredApi(context, h)
-//} else {
-//	context.SetApiBufferKey(buffer.GetApiBufferKeyFromObservedApi(context.GetObservedApi()))
-//	sf.apiProcessor.ProcessDiscoveredApi(context, h)
-//}
-
-// 		//h.ServeHTTP(nrw, r)
-// 	})
-// }
-
 func (sf *ShortloopFilter) GetApiConfig(observedApi ObservedApi, agentConfigLocal AgentConfig) *ApiConfig {
 
 	if agentConfigLocal.GetRegisteredApiConfigs() == nil {
@@ -139,15 +86,6 @@ func (sf *ShortloopFilter) OnSuccessfulConfigUpdate(agentConfig AgentConfig) {
 func (sf *ShortloopFilter) OnErroneousConfigUpdate() {
 	sf.AgentConfig = GetNoOpAgentConfig()
 }
-
-//var Shortloop ShortloopFilter
-//
-//func init() {
-//	scm := NewConfigManager("http://localhost:8300", http.Client{}, "test-service")
-//	scm.Init()
-//	Shortloop = NewShortloopFilter(&scm, "test-service")
-//	Shortloop.Init()
-//}
 
 func (sf *ShortloopFilter) GetUserApplicationName() string {
 	return sf.UserApplicationName

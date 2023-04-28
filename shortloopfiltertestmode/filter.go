@@ -10,6 +10,7 @@ var currentShortloopFilterTestMode *ShortloopFilterTestMode = &ShortloopFilterTe
 type ShortloopFilterTestMode struct {
 	ApiProcessor        *ApiProcessor
 	UserApplicationName string
+	MaskHeaders         []string
 }
 
 func CurrentShortloopFilterTestMode() *ShortloopFilterTestMode {
@@ -33,6 +34,10 @@ func (sf *ShortloopFilterTestMode) GetApiProcessor() *ApiProcessor {
 	return sf.ApiProcessor
 }
 
+func (sf *ShortloopFilterTestMode) GetMaskHeaders() []string {
+	return sf.MaskHeaders
+}
+
 func (sf *ShortloopFilterTestMode) SetApiProcessor(apiProcessor *ApiProcessor) {
 	sf.ApiProcessor = apiProcessor
 }
@@ -43,4 +48,8 @@ func (sf *ShortloopFilterTestMode) GetUserApplicationName() string {
 
 func (sf *ShortloopFilterTestMode) SetUserApplicationName(userApplicationName string) {
 	sf.UserApplicationName = userApplicationName
+}
+
+func (sf *ShortloopFilterTestMode) SetMaskHeaders(maskHeaders []string) {
+	sf.MaskHeaders = maskHeaders
 }

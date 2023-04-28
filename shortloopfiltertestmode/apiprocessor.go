@@ -23,7 +23,7 @@ func NewApiProcessor(bm *BufferManager) *ApiProcessor {
 	}
 }
 
-func (ap *ApiProcessor) ProcessApi(context shortloopfilter.RequestResponseContext, next func(canOffer bool, responsePayloadCaptureAttempted bool)) {
+func (ap *ApiProcessor) ProcessApi(context shortloopfilter.RequestResponseContext, next func(canOffer bool, responsePayloadCaptureAttempted bool), maskHeaders []string) {
 	if ap.bm == nil {
 		sdklogger.Logger.Error("BufferManager is nil inside ProcessApi")
 		next(false, false)
@@ -42,17 +42,17 @@ func (ap *ApiProcessor) ProcessApi(context shortloopfilter.RequestResponseContex
 
 	context.SetLatency(time.Since(startTime).Milliseconds())
 
-	ap.tryOffering(context)
+	ap.tryOffering(context, maskHeaders)
 }
 
-func (ap *ApiProcessor) tryOffering(context shortloopfilter.RequestResponseContext) {
+func (ap *ApiProcessor) tryOffering(context shortloopfilter.RequestResponseContext, maskHeaders []string) {
 	defer func() {
 		if err := recover(); err != nil {
 			sdklogger.Logger.ErrorF("Panic in Test Mode tryOffering: %s\n", err)
 		}
 	}()
 
-	var apiSample *APISample = ap.getBufferEntryForApiSample(context)
+	var apiSample *APISample = ap.getBufferEntryForApiSample(context, maskHeaders)
 	sdklogger.Logger.InfoF("trying to offer apiSample of %s to buffer in Test Mode\n", apiSample.GetRawUri())
 	if apiSample != nil {
 		if !ap.bm.Offer(apiSample) {
@@ -64,7 +64,7 @@ func (ap *ApiProcessor) tryOffering(context shortloopfilter.RequestResponseConte
 	}
 }
 
-func (ap *ApiProcessor) getBufferEntryForApiSample(context shortloopfilter.RequestResponseContext) *APISample {
+func (ap *ApiProcessor) getBufferEntryForApiSample(context shortloopfilter.RequestResponseContext, maskHeaders []string) *APISample {
 	var apiSample APISample = APISample{}
 
 	apiSample.SetApplicationName(context.GetApplicationName())
@@ -75,8 +75,8 @@ func (ap *ApiProcessor) getBufferEntryForApiSample(context shortloopfilter.Reque
 	}
 	apiSample.SetRawUri(context.GetObservedApi().GetUri().GetURIPath())
 	apiSample.SetParameters(ap.getParameters(context.GetHttpRequest()))
-	apiSample.SetRequestHeaders(ap.getRequestHeaders(context.GetHttpRequest()))
-	apiSample.SetResponseHeaders(ap.getResponseHeaders(context.GetResponseWriterWrapper()))
+	apiSample.SetRequestHeaders(ap.getRequestHeaders(context.GetHttpRequest(), maskHeaders))
+	apiSample.SetResponseHeaders(ap.getResponseHeaders(context.GetResponseWriterWrapper(), maskHeaders))
 	apiSample.SetLatency(context.GetLatency())
 	var scheme string = ap.getScheme(context.GetHttpRequest())
 	apiSample.SetScheme(scheme)
@@ -128,7 +128,17 @@ func (ap *ApiProcessor) getHostAndPort(request *http.Request, scheme string) (ho
 	return
 }
 
-func (ap *ApiProcessor) getRequestHeaders(request *http.Request) map[string]string {
+func (ap *ApiProcessor) isHeaderAllowed(header string, maskHeaders []string) bool {
+	for _, maskHeader := range maskHeaders {
+		// compare with ignore case
+		if strings.EqualFold(header, maskHeader) {
+			return false
+		}
+	}
+	return true
+}
+
+func (ap *ApiProcessor) getRequestHeaders(request *http.Request, maskHeaders []string) map[string]string {
 	if request == nil {
 		return map[string]string{}
 	}
@@ -136,12 +146,17 @@ func (ap *ApiProcessor) getRequestHeaders(request *http.Request) map[string]stri
 	var headers map[string]string = map[string]string{}
 
 	for key := range request.Header {
-		headers[key] = request.Header.Get(key)
+		if ap.isHeaderAllowed(key, maskHeaders) {
+			headers[key] = request.Header.Get(key)
+		} else {
+			lock := '🔒'
+			headers[key] = string(lock) + "MASKED" + string(lock)
+		}
 	}
 	return headers
 }
 
-func (ap *ApiProcessor) getResponseHeaders(responseWriterWrapper ResponseWriter) map[string]string {
+func (ap *ApiProcessor) getResponseHeaders(responseWriterWrapper ResponseWriter, maskHeaders []string) map[string]string {
 	if responseWriterWrapper == nil {
 		return map[string]string{}
 	}
@@ -149,7 +164,12 @@ func (ap *ApiProcessor) getResponseHeaders(responseWriterWrapper ResponseWriter)
 	var headers map[string]string = map[string]string{}
 
 	for key := range responseWriterWrapper.GetHeader() {
-		headers[key] = responseWriterWrapper.GetHeader().Get(key)
+		if ap.isHeaderAllowed(key, maskHeaders) {
+			headers[key] = responseWriterWrapper.GetHeader().Get(key)
+		} else {
+			lock := '🔒'
+			headers[key] = string(lock) + "MASKED" + string(lock)
+		}
 	}
 	return headers
 }

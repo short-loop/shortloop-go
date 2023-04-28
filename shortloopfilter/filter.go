@@ -43,6 +43,7 @@ type ShortloopFilter struct {
 	configManager       *config.Manager
 	ApiProcessor        *ApiProcessor
 	UserApplicationName string
+	MaskHeaders         []string
 }
 
 func NewShortloopFilter(configManager *config.Manager, userApplicationName string) ShortloopFilter {
@@ -105,6 +106,14 @@ func (sf *ShortloopFilter) SetConfigManager(configManager *config.Manager) {
 
 func (sf *ShortloopFilter) GetApiProcessor() *ApiProcessor {
 	return sf.ApiProcessor
+}
+
+func (sf *ShortloopFilter) GetMaskHeaders() []string {
+	return sf.MaskHeaders
+}
+
+func (sf *ShortloopFilter) SetMaskHeaders(maskHeaders []string) {
+	sf.MaskHeaders = maskHeaders
 }
 
 func (sf *ShortloopFilter) SetApiProcessor(apiProcessor *ApiProcessor) {

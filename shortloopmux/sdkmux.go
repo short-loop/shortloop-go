@@ -22,6 +22,7 @@ type Options struct {
 	AuthKey           string
 	Environment       string
 	Capture           string
+	MaskHeaders       []string
 }
 
 type ShortloopMux interface {
@@ -88,7 +89,7 @@ func (shortloopMux *ShortloopMuxNormalMode) Filter(h http.Handler) http.Handler 
 					h.ServeHTTP(w, context.GetHttpRequest())
 				}
 				return
-			})
+			}, sf.GetMaskHeaders())
 		} else {
 			sdklogger.Logger.InfoF("ApiConfig not found for observedApi: %+v\n", observedApi.GetUri())
 			context.SetApiBufferKey(buffer.GetApiBufferKeyFromObservedApi(context.GetObservedApi()))
@@ -99,7 +100,7 @@ func (shortloopMux *ShortloopMuxNormalMode) Filter(h http.Handler) http.Handler 
 					h.ServeHTTP(w, context.GetHttpRequest())
 				}
 				return
-			})
+			}, sf.GetMaskHeaders())
 		}
 
 		// h.ServeHTTP(nrw, r)
@@ -135,7 +136,7 @@ func (shortloopMux *ShortloopMuxTestMode) Filter(h http.Handler) http.Handler {
 				h.ServeHTTP(w, context.GetHttpRequest())
 			}
 			return
-		})
+		}, sf.GetMaskHeaders())
 	})
 }
 
@@ -167,6 +168,10 @@ func Init(options Options) (ShortloopMux, error) {
 		logLevel = options.LogLevel
 	}
 
+	if options.MaskHeaders == nil {
+		options.MaskHeaders = []string{}
+	}
+
 	sdklogger.Logger.SetLoggingEnabled(loggingEnabled)
 	sdklogger.Logger.SetLogLevel(sdklogger.GetLogLevel(logLevel))
 
@@ -181,6 +186,7 @@ func Init(options Options) (ShortloopMux, error) {
 		shortloopFilter := shortloopfiltertestmode.CurrentShortloopFilterTestMode()
 		shortloopFilter.SetUserApplicationName(options.ApplicationName)
 		shortloopFilter.SetApiProcessor(apiProcessor)
+		shortloopFilter.SetMaskHeaders(options.MaskHeaders)
 		shortloopFilter.Init()
 		return shortloopMux, nil
 	}
@@ -201,6 +207,7 @@ func Init(options Options) (ShortloopMux, error) {
 	shortloopFilter.SetUserApplicationName(options.ApplicationName)
 	shortloopFilter.SetConfigManager(configManager)
 	shortloopFilter.SetApiProcessor(apiProcessor)
+	shortloopFilter.SetMaskHeaders(options.MaskHeaders)
 	shortloopFilter.Init()
 	sdkversion.SdkType = "Go-Mux"
 	sdklogger.Logger.Info("Initialized Shortloop SDK")

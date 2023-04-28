@@ -24,6 +24,7 @@ type Options struct {
 	AuthKey           string
 	Environment       string
 	Capture           string
+	MaskHeaders       []string
 }
 
 type ShortloopGin interface {
@@ -90,7 +91,7 @@ func (shortloopGin *ShortloopGinNormalMode) Filter() gin.HandlerFunc {
 				}
 				c.Next()
 				return
-			})
+			}, sf.GetMaskHeaders())
 		} else {
 			sdklogger.Logger.InfoF("ApiConfig not found for observedApi: %+v\n", observedApi.GetUri())
 			context.SetApiBufferKey(buffer.GetApiBufferKeyFromObservedApi(context.GetObservedApi()))
@@ -100,7 +101,7 @@ func (shortloopGin *ShortloopGinNormalMode) Filter() gin.HandlerFunc {
 				}
 				c.Next()
 				return
-			})
+			}, sf.GetMaskHeaders())
 		}
 	}
 }
@@ -132,7 +133,7 @@ func (shortloopGin *ShortloopGinTestMode) Filter() gin.HandlerFunc {
 			}
 			c.Next()
 			return
-		})
+		}, sf.GetMaskHeaders())
 	}
 }
 
@@ -170,6 +171,10 @@ func Init(options Options) (ShortloopGin, error) {
 		logLevel = options.LogLevel
 	}
 
+	if options.MaskHeaders == nil {
+		options.MaskHeaders = []string{}
+	}
+
 	sdklogger.Logger.SetLoggingEnabled(loggingEnabled)
 	sdklogger.Logger.SetLogLevel(sdklogger.GetLogLevel(logLevel))
 
@@ -185,6 +190,7 @@ func Init(options Options) (ShortloopGin, error) {
 		shortloopFilter := shortloopfiltertestmode.CurrentShortloopFilterTestMode()
 		shortloopFilter.SetUserApplicationName(options.ApplicationName)
 		shortloopFilter.SetApiProcessor(apiProcessor)
+		shortloopFilter.SetMaskHeaders(options.MaskHeaders)
 		shortloopFilter.Init()
 		return shortloopGin, nil
 	}
@@ -205,6 +211,7 @@ func Init(options Options) (ShortloopGin, error) {
 	shortloopFilter.SetUserApplicationName(options.ApplicationName)
 	shortloopFilter.SetConfigManager(configManager)
 	shortloopFilter.SetApiProcessor(apiProcessor)
+	shortloopFilter.SetMaskHeaders(options.MaskHeaders)
 	shortloopFilter.Init()
 	sdkversion.SdkType = "Go-Gin"
 	sdklogger.Logger.InfoF("Initialized Shortloop SDK\napplication name: %v\nurl: %v\nagent id:%v\nSDK Version: %v.%v\nSDKType: %v\n",
